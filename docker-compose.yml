@@ -1,0 +1,123 @@
+version: '3.7'
+
+services:
+  # ReplicaSet 1
+  mongodb-rs101:
+    image: mongo:latest
+    container_name: mongodb-rs101
+    ports:
+      - "27017:27017"
+    command: mongod --shardsvr --replSet RS1 --port 27017 --bind_ip_all
+    volumes:
+      - ./mongodb-data-101:/data/db
+
+  mongodb-rs102:
+    image: mongo:latest
+    container_name: mongodb-rs102
+    ports:
+      - "28017:28017"
+    command: mongod --shardsvr --replSet RS1 --port 28017 --bind_ip_all
+    volumes:
+      - ./mongodb-data-102:/data/db
+
+  mongodb-rs103:
+    image: mongo:latest
+    container_name: mongodb-rs103
+    ports:
+      - "29017:29017"
+    command: mongod --shardsvr --replSet RS1 --port 29017 --bind_ip_all
+    volumes:
+      - ./mongodb-data-103:/data/db
+
+  mongodb-rs-1-init:
+    image: mongo:latest
+    container_name: rs-1-init
+    depends_on:
+      - mongodb-rs101
+      - mongodb-rs102
+      - mongodb-rs103
+    entrypoint: [ "sh", "-c", "until mongosh --host mongodb-rs101 --port 27017 --eval 'print(\"waited for connection\")'; do sleep 5; done && mongosh --host mongodb-rs101 --port 27017 --eval 'config={\"_id\":\"RS1\",\"members\":[{\"_id\":0,\"host\":\"mongodb-rs101:27017\"},{\"_id\":1,\"host\":\"mongodb-rs102:28017\"},{\"_id\":2,\"host\":\"mongodb-rs103:29017\"}]};rs.initiate(config);'" ]
+
+  # ReplicaSet 2
+  mongodb-rs201:
+    image: mongo:latest
+    container_name: mongodb-rs201
+    ports:
+      - "27027:27027"
+    command: mongod --shardsvr --replSet RS2 --port 27027 --bind_ip_all
+    volumes:
+      - ./mongodb-data-201:/data/db
+
+  mongodb-rs202:
+    image: mongo:latest
+    container_name: mongodb-rs202
+    ports:
+      - "28027:28027"
+    command: mongod --shardsvr --replSet RS2 --port 28027 --bind_ip_all
+    volumes:
+      - ./mongodb-data-202:/data/db
+
+  mongodb-rs203:
+    image: mongo:latest
+    container_name: mongodb-rs203
+    ports:
+      - "29027:29027"
+    command: mongod --shardsvr --replSet RS2 --port 29027 --bind_ip_all
+    volumes:
+      - ./mongodb-data-203:/data/db
+
+  mongodb-rs-2-init:
+    image: mongo:latest
+    container_name: rs-2-init
+    depends_on:
+      - mongodb-rs201
+      - mongodb-rs202
+      - mongodb-rs203
+    entrypoint: [ "sh", "-c", "until mongosh --host mongodb-rs201 --port 27027 --eval 'print(\"waited for connection\")'; do sleep 5; done && mongosh --host mongodb-rs201 --port 27027 --eval 'config={\"_id\":\"RS2\",\"members\":[{\"_id\":0,\"host\":\"mongodb-rs201:27027\"},{\"_id\":1,\"host\":\"mongodb-rs202:28027\"},{\"_id\":2,\"host\":\"mongodb-rs203:29027\"}]};rs.initiate(config);'" ]
+
+  # Config replica set
+  mongodb-cs101:
+    image: mongo:latest
+    container_name: mongodb-cs101
+    ports:
+      - "27037:27037"
+    command: mongod --configsvr --replSet RScfg --port 27037 --bind_ip_all
+    volumes:
+      - ./mongodb-configdata-101:/data/db
+
+  mongodb-cs102:
+    image: mongo:latest
+    container_name: mongodb-cs102
+    ports:
+      - "28037:28037"
+    command: mongod --configsvr --replSet RScfg --port 28037 --bind_ip_all
+    volumes:
+      - ./mongodb-configdata-102:/data/db
+
+  mongodb-cs103:
+    image: mongo:latest
+    container_name: mongodb-cs103
+    ports:
+      - "29037:29037"
+    command: mongod --configsvr --replSet RScfg --port 29037 --bind_ip_all
+    volumes:
+      - ./mongodb-configdata-103:/data/db
+
+  mongodb-cs-init:
+    image: mongo:latest
+    container_name: cs-init
+    depends_on:
+      - mongodb-cs101
+      - mongodb-cs102
+      - mongodb-cs103
+    entrypoint: [ "sh", "-c", "until mongosh --host mongodb-cs101 --port 27037 --eval 'print(\"waited for connection\")'; do sleep 5; done && mongosh --host mongodb-cs101 --port 27037 --eval 'config={\"_id\":\"RScfg\",\"members\":[{\"_id\":0,\"host\":\"mongodb-cs101:27037\"},{\"_id\":1,\"host\":\"mongodb-cs102:28037\"},{\"_id\":2,\"host\":\"mongodb-cs103:29037\"}]};rs.initiate(config);'" ]
+
+  mongodb-mongos:
+    image: mongo:latest
+    container_name: mongodb-mongos
+    ports:
+      - "27000:27000"
+    command: mongos --configdb RScfg/mongodb-cs101:27037,mongodb-cs102:28037,mongodb-cs103:29037 --port 27000
+    volumes:
+      - ./mongodb-mongos:/data/db
+      - ~/Downloads/dump-2/stocks:/data/stocks
