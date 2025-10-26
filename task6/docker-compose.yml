@@ -1,0 +1,143 @@
+version: '3.7'
+
+services:
+  # ReplicaSet 1
+  mongodb-rs101:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs101
+    ports:
+      - "27017:27017"
+    command: mongod --auth --shardsvr --replSet RS1 --port 27017 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-101p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      - PBM_MONGODB_URI="mongodb://pbmuser:secretpwd@mongodb-rs101:27017/?authSource=admin&replicaSet=RS1"
+
+  mongodb-rs102:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs102
+    ports:
+      - "28017:28017"
+    command: mongod  --auth --shardsvr --replSet RS1 --port 28017 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-102p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-rs102:28017/?authSource=admin&replicaSet=RS1
+
+  mongodb-rs103:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs103
+    ports:
+      - "29017:29017"
+    command: mongod --auth --shardsvr --replSet RS1 --port 29017 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-103p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-rs103:29017/?authSource=admin&replicaSet=RS1
+
+  # ReplicaSet 2
+  mongodb-rs201:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs201
+    ports:
+      - "27027:27027"
+    command: mongod  --auth --shardsvr --replSet RS2 --port 27027 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-201p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-rs201:27027/?authSource=admin&replicaSet=RS2
+
+  mongodb-rs202:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs202
+    ports:
+      - "28027:28027"
+    command: mongod  --auth --shardsvr --replSet RS2 --port 28027 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-202p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-rs202:28027/?authSource=admin&replicaSet=RS2
+
+  mongodb-rs203:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-rs203
+    ports:
+      - "29027:29027"
+    command: mongod  --auth --shardsvr --replSet RS2 --port 29027 --bind_ip_all --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-data-203p:/data/db
+      - ./secrets:/etc/secrets:ro
+      - ./backups:/data/backups
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-rs203:29027/?authSource=admin&replicaSet=RS2
+
+  # Config replica set
+  mongodb-cs101:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-cs101
+    ports:
+      - "27037:27037"
+    command: mongod --auth --configsvr --replSet RScfg --port 27037 --bind_ip_all --dbpath /data/db --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-configdata-101p-cs:/data/db
+      - ./secrets:/etc/secrets:ro
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-cs101:27037/?authSource=admin&replicaSet=RScfg
+
+  mongodb-cs102:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-cs102
+    ports:
+      - "28037:28037"
+    command: mongod --auth --configsvr --replSet RScfg --port 28037 --bind_ip_all --dbpath /data/db --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-configdata-102p-cs:/data/db
+      - ./secrets:/etc/secrets:ro
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-cs102:28037/?authSource=admin&replicaSet=RScfg
+
+  mongodb-cs103:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-cs103
+    ports:
+      - "29037:29037"
+    command: mongod --auth --configsvr --replSet RScfg --port 29037 --bind_ip_all --dbpath /data/db --keyFile /etc/secrets/mongodb-keyfile
+    volumes:
+      - ./mongodb-configdata-103p-cs:/data/db
+      - ./secrets:/etc/secrets:ro
+    environment:
+      PBM_MONGODB_URI: mongodb://pbmuser:secretpwd@mongodb-cs103:29037/?authSource=admin&replicaSet=RScfg
+
+  mongodb-mongos:
+    image: percona/percona-server-mongodb:8.0-multi
+    container_name: mongodb-mongos
+    ports:
+      - "27000:27000"
+    command: mongos --keyFile /etc/secrets/mongodb-keyfile --configdb RScfg/mongodb-cs101:27037,mongodb-cs102:28037,mongodb-cs103:29037 --port 27000 --bind_ip_all
+    volumes:
+      - ./mongodb-mongos-0:/data/db
+      - ~/Downloads/dump-2/stocks:/data/stocks
+      - ./secrets:/etc/secrets:ro
+
+  mongodb-s3:
+    image: quay.io/minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001" # MinIO Console port
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+    volumes:
+      - ./minio_data:/data
+    command: server /data --console-address ":9001"
